@@ -55,7 +55,7 @@ object Expressions extends App {
   val someValue = {
     2 < 3
   }
-  //true, because it evaluates if 2 is less than 3, which evaluates to true.
+  //true, because it evaluates if 2 is less than 3, which is a boolean operation that evaluates to true.
 
   val someOtherValue = {
     if(someValue) 239 else 986
