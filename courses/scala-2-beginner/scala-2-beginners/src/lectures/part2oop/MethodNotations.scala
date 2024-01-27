@@ -9,7 +9,7 @@ object MethodNotations extends App {
     def +(person: Person): String = s"${this.name} is hanging out with ${person.name}"
     def unary_! : String = s"$name, what the heck?!"
     def isAlive: Boolean = true
-//    def apply(): String =
+    def apply(): String = s"Hi, my name is $name and I like $favoriteMovie"
   }
 
   val mary = new Person("Mary", "Inception")
@@ -43,5 +43,7 @@ object MethodNotations extends App {
   println(mary isAlive)
 
   //apply
+  println(mary.apply())
+  println(mary()) //equivalent
 
 }
