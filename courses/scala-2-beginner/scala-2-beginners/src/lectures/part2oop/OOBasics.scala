@@ -1,5 +1,6 @@
 package lectures.part2oop
 
+//Object-Oriented Basics
 object OOBasics extends App {
 
   val person = new Person("John", 26)
