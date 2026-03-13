@@ -1,2 +1,2 @@
 # RockTheJVMScala
-Repository that contains work from rockthejvm.com Scala courses.
+Repository that contains work from RockTheJVM.com Scala courses.
