@@ -130,17 +130,14 @@ object ListTest extends App {
 //    override def transform(elem: Int): Int = elem * 2
 //  }).toString)
 
-  println(listOfIntegers.map(new Function1[Int, Int] {
-    override def apply(elem: Int): Int = elem * 2
-  }).toString)
+//  println(listOfIntegers.map(elem => elem * 2).toString)
+  println(listOfIntegers.map(_ * 2).toString)
 
 //  println(listOfIntegers.filter(new MyPredicate[Int] {
 //    override def test(elem: Int): Boolean = elem % 2 == 0
 //  }).toString)
 
-  println(listOfIntegers.filter(new Function1[Int, Boolean] {
-    override def apply(elem: Int): Boolean = elem % 2 == 0
-  }).toString)
+  println(listOfIntegers.filter(_ % 2 == 0).toString)
 
   println(listOfIntegers ++ anotherListOfIntegers).toString
 
@@ -148,9 +145,7 @@ object ListTest extends App {
 //    override def transform(elem: Int): MyList[Int] = new Cons(elem, new Cons(elem + 1, Empty))
 //  }).toString)
 
-  println(listOfIntegers.flatMap(new Function1[Int, MyList[Int]] {
-    override def apply(elem: Int): MyList[Int] = new Cons(elem, new Cons(elem + 1, Empty))
-  }).toString)
+  println(listOfIntegers.flatMap(elem => new Cons(elem, new Cons(elem + 1, Empty))).toString)
 
 //  val list = new Cons(1, new Cons(2, new Cons(3, Empty)))
 //  println(list.tail.head)

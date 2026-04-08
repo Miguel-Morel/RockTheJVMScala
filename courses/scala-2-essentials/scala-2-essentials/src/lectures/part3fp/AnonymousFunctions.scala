@@ -36,4 +36,7 @@ object AnonymousFunctions extends App {
     2. rewrite the "special" adder as an anonymous function
    */
 
+  val superAdd = (x: Int) => (y: Int) => x + y
+  println(superAdd(3)(4))
+
 }
