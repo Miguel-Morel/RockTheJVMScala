@@ -57,15 +57,7 @@ object TypeClasses extends App {
     def serialize(user: User): String = s"<div>${user.name}</div>"
   }
 
-  // HTMLSerializer ->TYPE CLASS: specifies a set of operations (ie. serialize) that can be applied to a given type
-  // type class template
-  trait MyTypeClassTemplate[T] {
-    def action(value: T): String
-  }
 
-  object MyTypeClassTemplate {
-    def applyp[T](implicit instance: MyTypeClassTemplate[T]) = instance
-  }
 
   /*
     Exercise
@@ -108,13 +100,45 @@ object TypeClasses extends App {
     implement the type class pattern for the Equality type class
    */
 
-  object Equal {
-    def apply[T](a: T, b: T)(implicit equalizer: Equal[T]): Boolean =
-      equalizer.apply(a, b)
+  // pt3
+  implicit class HTMLEnrichment[T](value: T) {
+    def toHTML(implicit serializer: HTMLSerializer[T]): String = serializer.serialize(value)
   }
 
-  val anotherJohn = User("John", 45, "anotherJohn@rockthejvm.com")
+  // neat
+  println(john.toHTML) // println(new HTMLEnrichment[User](john).toHTML(UserSerialize))
 
-  // ad-hoc polymorphism
-  println(Equal(john, anotherJohn))
+  /*
+    - extend to new types
+    - multiple implementations for same types
+    - super expressive
+   */
+
+  println(2.toHTML)
+  println(john.toHTML(PartialUserSerializer))
+
+  /*
+    - type class itself -> HTMLSerializer[T] {...}
+    - type class instances (some of which are implicit) -> UserSerializer, IntSerializer
+    - conversion with implicit classes -> HTMLEnrichment
+   */
+
+  // context bounds
+  def htmlBoilerplate[T](content: T)(implicit serializer: HTMLSerializer[T]): String =
+    s"<html><body> ${content.toHTML(serializer)}</body></html>"
+
+  def htmlSugar[T : HTMLSerializer](content: T): String = {
+    val serializer = implicitly[HTMLSerializer[T]]
+    // use serializer
+    s"<html><body> ${content.toHTML(serializer)}</body></html>"
+  }
+
+  // implicitly
+  case class Permissions(mask: String)
+  implicit val defaultPermissions: Permissions = Permissions("0744")
+
+  // in some other part of the code
+  val standardPerms = implicitly[Permissions]
+
+
 }
