@@ -150,7 +150,7 @@ object FBoundedPolymorphism extends App {
   dog.breed
 
   val cat = new Cat
-  cat.breed // wrong. missing right implicit
+//  cat.breed // wrong. missing right implicit
 
 
 
