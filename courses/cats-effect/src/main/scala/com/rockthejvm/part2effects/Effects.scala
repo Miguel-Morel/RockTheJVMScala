@@ -1,6 +1,7 @@
 package com.rockthejvm.part2effects
 
 import scala.concurrent.Future
+import scala.io.StdIn
 
 object Effects {
 
@@ -70,11 +71,79 @@ object Effects {
     42
   })
 
+  /*
+    exercises
+    1. an IO which returns the current time of the system
+    2. an IO which measures the duration of a computation (hint: use ex 1)
+    3. an IO which prints something to the console
+    4. an IO which reads a line (a string) from the std input
+   */
+
+  // 1
+  val clock: MyIO[Long] = MyIO(() => System.currentTimeMillis())
+
+  // 2
+  def measure[A](computation: MyIO[A]): MyIO[Long] = for {
+    startTime <- clock
+    _ <- computation
+    finishTime <- clock
+  } yield finishTime - startTime
+
+  /*
+    clock.flatMap(startTime => computation.flatMap(_ => clock.map(finishTime => finishTime - startTime)))
+
+    clock.map(finishTime => finishTime - startTime) = MyIO(() => clock.unsafeRun() - startTime) // same as below
+    clock.map(finishTime => finishTime - startTime) = MyIO(() => System.currentTimeMillis() - startTime) // same as above
+    => clock.flatMap(startTime => computation.flatMap(_ => MyIO(() => System.currentTimeMillis() - startTime)))
+
+    computation.flatMap(lambda) = MyIO(() => lambda(computation.unsafeRun()) // same as below
+    computation.flatMap(lambda) = MyIO(() => lambda(___COMP___).unsafeRun()) // same as above
+                                = MyIO(() => MyIO(() => System.currentTimeMillis() - startTime)).unsafeRun())
+                                = MyIO(() => System.currentTimeMillis_after_computation() - startTime)
+
+    => clock.flatMap(startTime => MyIO(() => System.currentTimeMillis_after_computation() - startTime))
+    = MyIO(() => lambda(clock.unsafeRun()).unsafeRun())
+    = MyIO(() => lambda(System.currentTimeMillis).unsafeRun())
+    = MyIO(() => MyIO(() => System.currentTimeMillis_after_computation() - System.currentTimeMillis).unsafeRun())
+    = MyIO(() => System.currentTimeMillis_after_computation() - System.currentTimeMillis_at_start())
+
+   */
+
+  def testTimeIO(): Unit = {
+    val test = measure(MyIO(() => Thread.sleep(1000)))
+    println(test.unsafeRun())
+  }
+
+  // 3
+  def putStrLn(line: String): MyIO[Unit] = MyIO(() => println(line))
+
+  // 4
+  val read: MyIO[String] = MyIO(() => StdIn.readLine())
+
+
+  def testConsole(): Unit = {
+    val program: MyIO[Unit] = for {
+      line1 <- read
+      line2 <- read
+      _ <- putStrLn(line1 + line2)
+    } yield ()
+
+    program.unsafeRun()
+  }
+
+  /*
+    line1 = readFromConsole
+    line2 = readFromConsole
+    println(line1 + line2)
+   */
+
 
 
 
   def main(args: Array[String]): Unit = {
-    anIO.unsafeRun()
+//    anIO.unsafeRun()
+//    testTimeIO()
+    testConsole()
   }
 
 }
