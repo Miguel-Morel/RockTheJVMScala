@@ -74,5 +74,33 @@ object CancellingIOs extends IOApp.Simple {
    Poll calls are "gaps opened" in the uncancelable region.
   */
 
-  override def run: IO[Unit] = authProgram
+  // exercises
+  // 1
+  val cancelBeforeMol = IO.canceled >> IO(42).debug
+  val uncancelableMol = IO.uncancelable(_ => IO.canceled >> IO(42).debug)
+  // uncancelable will eliminate ALL cancel points, save for those inside poll regions
+
+  // 2
+  val invincibleAuthProgram = for {
+    authFib <- IO.uncancelable(_ => authFlow).start
+    _ <- IO.sleep(1.seconds) >> IO("authentication timeout. attempting cancel...").debug >> authFib.cancel
+    _ <- authFib.join
+  } yield ()
+
+  // 3
+  def threeStepProgram(): IO[Unit] = {
+    val sequence = IO.uncancelable { poll =>
+      poll(IO("cancelable").debug >> IO.sleep(1.second) >> IO("cancelable end").debug) >>
+        IO("uncancellable").debug >> IO.sleep(1.second) >> IO("uncancelable end").debug >>
+        poll(IO("second cancelable").debug >> IO.sleep(1.second)) >> IO("second cancelabel end").debug
+    }
+
+    for {
+      fib <- sequence.start
+      _ <- IO.sleep(1500.millis) >> IO("canceling").debug >> fib.cancel
+      _ <- fib.join
+    } yield ()
+  }
+
+  override def run: IO[Unit] = threeStepProgram()
 }
