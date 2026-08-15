@@ -1,8 +1,8 @@
 package com.rockthejvm.part4coordination
 
-import cats.effect.kernel.Resource
+import cats.effect.kernel.{Ref, Resource}
 import cats.effect.std.CountDownLatch
-import cats.effect.{IO, IOApp}
+import cats.effect.{Deferred, IO, IOApp}
 import cats.implicits.{catsSyntaxParallelTraverse1, toTraverseOps}
 import com.rockthejvm.utils.DebugWrapper
 
@@ -79,7 +79,7 @@ object CountdownLatches extends IOApp.Simple {
     }
   }
 
-  def createFileDownloaderTask(id: Int, latch: CountDownLatch[IO], filename: String, destFolder: String): IO[Unit] = for {
+  def createFileDownloaderTask(id: Int, latch: CDLatch, filename: String, destFolder: String): IO[Unit] = for {
     _ <- IO(s"[task $id] downloading chunk...").debug
     _ <- IO.sleep((Random.nextDouble * 1000).toInt.millis)
     chunk <- FileServer.getFileChunk(id)
@@ -98,7 +98,7 @@ object CountdownLatches extends IOApp.Simple {
 
   def downloadFile(filename: String, destFolder: String): IO[Unit] = for {
     n <- FileServer.getNumChunks
-    latch <- CountDownLatch[IO](n)
+    latch <- CDLatch(n)
     _ <- IO(s"download started on $n fibers").debug
     _ <- (0 until n).toList.parTraverse(id => createFileDownloaderTask(id, latch, filename, destFolder))
     _ <- latch.await
@@ -107,4 +107,39 @@ object CountdownLatches extends IOApp.Simple {
 
 
   override def run: IO[Unit] = downloadFile("myScalafile.txt", "/Users/mmorel/GitHub/RockTheJVMScala/courses/cats-effect/src/main/resources")
+}
+
+/*
+  exercise: implement your own CDLatch with Ref and Deferred
+ */
+
+abstract class CDLatch {
+  def await: IO[Unit]
+  def release: IO[Unit]
+}
+
+object CDLatch {
+  sealed trait State
+  case object Done extends State
+  case class Live(remainingCount: Int, signal: Deferred[IO, Unit]) extends State
+
+
+
+
+  def apply(count: Int): IO[CDLatch] = for {
+    signal <- Deferred[IO, Unit]
+    state <- Ref[IO].of[State](Live(count, signal))
+  } yield new CDLatch {
+
+    override def await: IO[Unit] = state.get.flatMap { s =>
+      if(s == Done) IO.unit // continue. the latch is dead
+      else signal.get // block here
+    }
+
+    override def release: IO[Unit] = IO.uncancelable(_ => state.modify {
+      case Done => (Done, IO.unit)
+      case Live(1, signal) => (Done, signal.complete(()).void)
+      case Live(n, signal) => (Live(n - 1, signal), IO.unit)
+    }.flatten)
+  }
 }
