@@ -3,6 +3,9 @@ package com.rockthejvm.part5polymorphic
 import cats.effect.kernel.Outcome.{Canceled, Errored, Succeeded}
 import cats.{Applicative, Monad}
 import cats.effect.{IO, IOApp, MonadCancel, Poll}
+import com.rockthejvm.utilsScala2.general.DebugWrapper
+
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 object PolymorphicCancellation extends IOApp.Simple {
 
@@ -70,10 +73,44 @@ object PolymorphicCancellation extends IOApp.Simple {
     IO(s"using the meaning of life: $value"))(value =>
     IO("releasing the meaning of life...").void)
 
-  
+  /*
+    exercise - generalize a piece of code
+
+   */
+  // hint
+  def unsafeSleep[F[_], E](duration: FiniteDuration)(implicit mc: MonadCancel[F, E]): F[Unit] =
+    mc.pure(Thread.sleep(duration.toMillis)) // not semantic blocking. NOT advisable
+
+  def inputPassword[F[_], E](implicit mc: MonadCancel[F, E]): F[String] = for {
+    _ <- mc.pure("input password").debug
+    _ <- mc.pure("typing password").debug
+    _ <- unsafeSleep[F, E](5.seconds)
+    pw <- mc.pure("RockTheJVM1!")
+  } yield pw
+
+  def verifyPassword[F[_], E](pw: String)(implicit mc: MonadCancel[F, E]): F[Boolean] = for {
+    _ <- mc.pure("verifying...").debug
+    _ <- unsafeSleep[F, E](2.seconds)
+    check <- mc.pure(pw == "RockTheJVM1!")
+  } yield check
+
+  def authFlow[F[_], E](implicit mc: MonadCancel[F, E]): F[Unit] = mc.uncancelable { poll =>
+    for {
+      pw <- poll(inputPassword).onCancel(mc.pure("authentication timed out. try again later").debug.void) // this is cancelable because of poll()
+      verified <- verifyPassword(pw) // this is NOT cancelable
+      _ <- if(verified) mc.pure("authentication successful").debug // this is NOT cancelable
+      else mc.pure("authentication failed").debug
+    } yield ()
+  }
+
+  val authProgram: IO[Unit] = for {
+    authFib <- authFlow[IO, Throwable].start
+    _ <- IO.sleep(3.seconds) >> IO("authentication timeout. attempting cancel...").debug >> authFib.cancel
+    _ <- authFib.join
+  } yield ()
 
 
 
-  override def run: IO[Unit] = ???
+  override def run: IO[Unit] = authProgram
 
 }
