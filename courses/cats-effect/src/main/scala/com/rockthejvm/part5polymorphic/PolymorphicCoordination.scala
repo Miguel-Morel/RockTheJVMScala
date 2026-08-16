@@ -1,8 +1,7 @@
 package com.rockthejvm.part5polymorphic
 
 import cats.effect.implicits.genSpawnOps
-import cats.effect.{Concurrent, Deferred, IO, IOApp, MonadCancel, Ref, Spawn}
-
+import cats.effect.{Concurrent, Deferred, Fiber, IO, IOApp, MonadCancel, Outcome, Ref, Spawn}
 import com.rockthejvm.utilsScala2.general.DebugWrapper
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -77,6 +76,40 @@ object PolymorphicCoordination extends IOApp.Simple {
     } yield ()
   }
 
+  /*
+   exercise
+   1. generalize racePair
+   2. generalize the Mutex concurrency primitive for any F
+   */
+
+  type RaceResult[F[_], A, B] = Either[
+    (Outcome[F, Throwable, A], Fiber[F, Throwable, B]), // (winner result, loser fiber)
+    (Fiber[F, Throwable, A], Outcome[F, Throwable, B]) // (loser fiber, winner result)
+  ]
+
+  type EitherOutcome[F[_], A, B] = Either[Outcome[F, Throwable, A], Outcome[F, Throwable, B]]
+
+  import cats.effect.syntax.monadCancel._ // guaranteeCase extension method
+
+  def ourRacePair[F[_], A, B](fa: F[A], fb: F[B])(implicit concurrent: Concurrent[F]): F[RaceResult[F, A, B]] = concurrent.uncancelable { poll =>
+    for {
+      signal <- concurrent.deferred[EitherOutcome[F, A, B]]
+      fiba <- fa.guaranteeCase(outcomeA => signal.complete(Left(outcomeA)).void).start
+      fibb <- fb.guaranteeCase(outcomeB => signal.complete(Right(outcomeB)).void).start
+      result <- poll(signal.get).onCancel { // blocking call - should be cancelable
+        for {
+          cancelFibA <- fiba.cancel.start
+          cancelFibB <- fibb.cancel.start
+          _ <- cancelFibA.join
+          _ <- cancelFibB.join
+        } yield ()
+
+      }
+    } yield result match {
+      case Left(outcomeA) => Left((outcomeA, fibb))
+      case Right(outcomeB) => Right((fiba, outcomeB))
+    }
+  }
 
 
   override def run: IO[Unit] = polymorphicEggBoiler[IO]
