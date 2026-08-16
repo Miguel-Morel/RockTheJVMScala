@@ -84,9 +84,9 @@ object PolymorphicAsync extends IOApp.Simple {
 
   def tupledEffect[F[_], A](a: A)(implicit async: Async[F]): F[(A, A)] = for {
     first <- firstEffect(a)
-    second <- secondEffect()
+    second <- secondEffect(a)
   } yield (first, second)
 
-  override def run: IO[Unit] = ???
+  override def run: IO[Unit] = tupledEffect[IO, Int](42).void
 
 }

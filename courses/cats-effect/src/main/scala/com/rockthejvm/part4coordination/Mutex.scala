@@ -9,10 +9,10 @@ import com.rockthejvm.utils.DebugWrapper
 import scala.collection.immutable.Queue
 import scala.concurrent.duration.DurationInt
 import scala.util.Random
-
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.effect.syntax.monadCancel._
+import com.rockthejvm.part4coordination.Mutex.State
 
 
 abstract class MutexV2[F[_]] {
@@ -41,7 +41,9 @@ object MutexV2 {
           val cleanup = state.modify {
             case State(locked, queue) =>
               val newQueue = queue.filterNot(_ eq signal)
-              (State(locked, newQueue), release)
+              val isBlocking = queue.exists(_ eq signal)
+              val decision = if(isBlocking) concurrent.unit else release
+              (State(locked, newQueue), decision)
           }.flatten
 
           state.modify {
@@ -91,7 +93,10 @@ object Mutex {
           val cleanup = state.modify {
             case State(locked, queue) =>
               val newQueue = queue.filterNot(_ eq signal)
-              (State(locked, newQueue), release)
+              // determine if current fiber is owner of mutex
+              val isBlocking = queue.exists(_ eq signal)
+              val decision = if(isBlocking) IO.unit else release
+              (State(locked, newQueue), decision)
           }.flatten
 
           state.modify {
@@ -196,6 +201,17 @@ object MutexPlayground extends IOApp.Simple {
     results <- (1 to 10).toList.parTraverse(id => createCancellingTask(id, mutex))
   } yield results
 
+  def demoCancelWhileBlocked() = for {
+    mutex <- MutexV2.create[IO]
+    fib1 <- (IO("[fib1] getting mutex").debug >> mutex.acquire >> IO("[fib1] got the mutex. never releasing").debug >> IO.never).start
+    fib2 <- (IO("[fib2] sleeping").debug >> IO.sleep(1.second) >> IO("[fib2] trying to get the mutex").debug >> mutex.acquire.onCancel(IO("[fib2] being cancelled").debug.void) >> IO("[fib2] acquired mutex").debug).start
+    fib3 <- (IO("[fib3] sleeping").debug >> IO.sleep(1500.millis) >> IO("[fib3] trying to get the mutex").debug >> mutex.acquire >> IO("[fib3] if this shows, then FAIL").debug).start
+    _ <- IO.sleep(2.seconds) >> IO("canceling fib 2").debug >> fib2.cancel
+    _ <- fib1.join
+    _ <- fib2.join
+    _ <- fib3.join
+  } yield ()
 
-  override def run: IO[Unit] = demoCancellingTasks().debug.void
+
+  override def run: IO[Unit] = demoCancelWhileBlocked().void
 }
