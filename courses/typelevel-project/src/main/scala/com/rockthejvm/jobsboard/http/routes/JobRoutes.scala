@@ -13,8 +13,9 @@ import java.util.UUID
 import scala.collection.mutable
 import com.rockthejvm.jobsboard.domain.job.*
 import com.rockthejvm.jobsboard.http.responses.FailureResponse
+import org.typelevel.log4cats.Logger
 
-class JobRoutes[F[_] : Concurrent] private extends Http4sDsl[F] {
+class JobRoutes[F[_] : Concurrent: Logger] private extends Http4sDsl[F] {
 
   // "database"
   private val database = mutable.Map[UUID, Job]()
@@ -44,11 +45,17 @@ class JobRoutes[F[_] : Concurrent] private extends Http4sDsl[F] {
       active = true
     ).pure[F]
 
+  import com.rockthejvm.jobsboard.logging.syntax.*
+
   private val createJobRouts: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "create" =>
       for {
-        jobInfo <- req.as[JobInfo]
+        _ <- Logger[F].info("trying to add job")
+        jobInfo <- req.as[JobInfo].logError(e => s"parsing payload failed: $e")
+//        _ <- Logger[F].info(s"parsed job info: $jobInfo") <- verbose. add if needed for debugging
         job <- createJob(jobInfo)
+//        _ <- Logger[F].info(s"created job : $job") <- verbose. add if needed for debugging
+        _ <- database.put(job.id, job).pure[F]
         resp <- Created(job.id)
       } yield resp
   }
@@ -86,6 +93,6 @@ class JobRoutes[F[_] : Concurrent] private extends Http4sDsl[F] {
 }
 
 object JobRoutes {
-  def apply[F[_]: Concurrent] = new JobRoutes[F]
+  def apply[F[_]: Concurrent: Logger] = new JobRoutes[F]
   
 }
