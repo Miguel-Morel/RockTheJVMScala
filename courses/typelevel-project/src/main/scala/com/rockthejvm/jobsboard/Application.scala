@@ -4,7 +4,7 @@ import cats.Monad
 import cats.effect.{IO, IOApp}
 import com.rockthejvm.jobsboard.config.EmberConfig
 import com.rockthejvm.jobsboard.config.Syntax.loadF
-import com.rockthejvm.jobsboard.http.routes.HealthRoutes
+import com.rockthejvm.jobsboard.http.HttpApi
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
 import org.http4s.ember.server.EmberServerBuilder
@@ -28,7 +28,7 @@ object Application extends IOApp.Simple {
           .default[IO]
           .withHost(config.host)
           .withPort(config.port)
-          .withHttpApp (HealthRoutes[IO].routes.orNotFound)
+          .withHttpApp (HttpApi[IO].endpoints.orNotFound)
           .build
           .use (_ => IO.println ("server ready") *> IO.never)
   }
