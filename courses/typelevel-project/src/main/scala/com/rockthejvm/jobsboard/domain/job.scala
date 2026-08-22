@@ -10,8 +10,8 @@ object job {
     jobInfo: JobInfo,
     active: Boolean = false
   )
-  
-  
+
+
   case class JobInfo(
     company: String,
     title: String,
@@ -22,14 +22,13 @@ object job {
     salaryLo: Option[Int],
     salaryHi: Option[Int],
     currency: Option[String],
-   
     country: Option[String],
     tags: Option[List[String]],
     image: Option[String],
     seniority: Option[String],
     other: Option[String]
   )
-  
+
   object JobInfo {
     val emtpy: JobInfo =
       JobInfo("", "", "", "", false, "", None, None, None, None, None, None, None, None)
