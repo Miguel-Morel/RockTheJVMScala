@@ -30,7 +30,7 @@ object job {
   )
 
   object JobInfo {
-    val emtpy: JobInfo =
+    val empty: JobInfo =
       JobInfo("", "", "", "", false, "", None, None, None, None, None, None, None, None)
 
     def minimal(company: String, title: String, description: String, externalUrl: String, remote: Boolean, location: String): JobInfo =
