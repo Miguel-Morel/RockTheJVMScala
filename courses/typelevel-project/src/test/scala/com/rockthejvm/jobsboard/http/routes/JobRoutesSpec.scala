@@ -3,7 +3,8 @@ package com.rockthejvm.jobsboard.http.routes
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
 import com.rockthejvm.jobsboard.core.Jobs
-import com.rockthejvm.jobsboard.domain.job.{Job, JobInfo}
+import com.rockthejvm.jobsboard.domain.job.{Job, JobFilter, JobInfo}
+import com.rockthejvm.jobsboard.domain.pagination.Pagination
 import com.rockthejvm.jobsboard.fixtures.JobFixture
 import org.http4s.{HttpRoutes, Method, Request, Status}
 import org.http4s.dsl.Http4sDsl
@@ -28,8 +29,13 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Ht
     override def create(ownerEmail: String, jobInfo: JobInfo): IO[UUID] =
       IO.pure(NewJobUuid)
 
-    override def all(): IO[List[Job]] =
+    override def all(): IO[List[Job]] = {
       IO.pure(List(AwesomeJob))
+    }
+
+    override def all(filter: JobFilter, pagination: Pagination): IO[List[Job]] =
+      if(filter.remote) IO.pure(List())
+      else IO.pure(List(AwesomeJob))
 
     override def find(id: UUID): IO[Option[Job]] =
       if(id == AwesomeJobUuid)
@@ -85,6 +91,7 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Ht
         // simulate an HTTP request
         response <- jobRoutes.orNotFound.run(
           Request(method = Method.POST, uri = uri"/jobs")
+            .withEntity(JobFilter()) // empty filter
         )
 
         // get the HTTP response
@@ -94,6 +101,25 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Ht
       } yield {
         response.status shouldBe Status.Ok
         retrieved shouldBe List(AwesomeJob)
+      }
+    }
+
+    "should return all jobs that satisfy a filter" in {
+      // code under test
+      for {
+        // simulate an HTTP request
+        response <- jobRoutes.orNotFound.run(
+          Request(method = Method.POST, uri = uri"/jobs")
+            .withEntity(JobFilter(remote = true))
+        )
+
+        // get the HTTP response
+        retrieved <- response.as[List[Job]]
+
+        // make some assertions
+      } yield {
+        response.status shouldBe Status.Ok
+        retrieved shouldBe List()
       }
     }
 
@@ -149,7 +175,7 @@ class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Ht
         responseInvalid <- jobRoutes.orNotFound.run(
           Request(method = Method.DELETE, uri = uri"/jobs/00000000-0000-0000-0000-000000000000")
         )
-        
+
         // make some assertions
       } yield {
         responseOk.status shouldBe Status.Ok
