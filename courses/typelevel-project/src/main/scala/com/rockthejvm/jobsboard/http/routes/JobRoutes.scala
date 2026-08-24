@@ -14,10 +14,16 @@ import java.util.UUID
 import scala.collection.mutable
 import com.rockthejvm.jobsboard.domain.job.*
 import com.rockthejvm.jobsboard.http.responses.FailureResponse
+import com.rockthejvm.jobsboard.http.validation.syntax.HttpValidationDsl
 import org.typelevel.log4cats.Logger
 import com.rockthejvm.jobsboard.logging.syntax.*
 
-class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends Http4sDsl[F] {
+class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends HttpValidationDsl[F] {
+
+  /*
+    refined
+    -checked at compile time -> increase compile time
+   */
 
   // POST /jobs?offset=x&limit=y { filters } // todo: add query params and filters
   private val allJobsRoute: HttpRoutes[F] = HttpRoutes.of[F] {
@@ -37,42 +43,30 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends Http4
       }
   }
 
-  // POST /jobs/create { jobInfo }
-//  private def createJob(jobInfo: JobInfo): F[Job] =
-//    Job(
-//      id = UUID.randomUUID(),
-//      date = System.currentTimeMillis(),
-//      ownerEmail = "TODO@rockthejvm.com",
-//      jobInfo = jobInfo,
-//      active = true
-//    ).pure[F]
-
-
-
   private val createJobRouts: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "create" =>
-      for {
-        _ <- Logger[F].info("trying to add job")
-        jobInfo <- req.as[JobInfo].logError(e => s"parsing payload failed: $e")
-//        _ <- Logger[F].info(s"parsed job info: $jobInfo") <- verbose. add if needed for debugging
-        jobId <- jobs.create("TODO@rockthejvm.com", jobInfo)
-//        _ <- Logger[F].info(s"created job : $job") <- verbose. add if needed for debugging
-//        _ <- database.put(job.id, job).pure[F]
-        resp <- Created(jobId)
-      } yield resp
+      req.validate[JobInfo] { jobInfo =>
+        for {
+          jobId <- jobs.create("TODO@rockthejvm.com", jobInfo)
+          resp <- Created(jobId)
+        } yield resp
+      }
   }
 
   // PUT /jobs/uuid { jobInfo }
   private val updateJobRoute: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ PUT -> Root / UUIDVar(id) =>
-      for {
-        jobInfo <- req.as[JobInfo]
-        maybeNewJob <- jobs.update(id, jobInfo)
-        resp <- maybeNewJob match {
-          case Some(job) => Ok()
-          case None => NotFound(FailureResponse(s"cannot update job $id: not found"))
-        }
-      } yield resp
+      req.validate[JobInfo] { jobInfo =>
+        for {
+          jobInfo <- req.as[JobInfo]
+          maybeNewJob <- jobs.update(id, jobInfo)
+          resp <- maybeNewJob match {
+            case Some(job) => Ok()
+            case None => NotFound(FailureResponse(s"cannot update job $id: not found"))
+          }
+        } yield resp
+      }
+    
   }
 
   // DELETE /jobs/uuid
