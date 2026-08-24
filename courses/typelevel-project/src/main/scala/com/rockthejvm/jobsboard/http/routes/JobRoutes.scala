@@ -13,6 +13,7 @@ import org.http4s.server.Router
 import java.util.UUID
 import scala.collection.mutable
 import com.rockthejvm.jobsboard.domain.job.*
+import com.rockthejvm.jobsboard.domain.pagination.Pagination
 import com.rockthejvm.jobsboard.http.responses.FailureResponse
 import com.rockthejvm.jobsboard.http.validation.syntax.HttpValidationDsl
 import org.typelevel.log4cats.Logger
@@ -25,11 +26,15 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends HttpV
     -checked at compile time -> increase compile time
    */
 
-  // POST /jobs?offset=x&limit=y { filters } // todo: add query params and filters
+  object OffsetQueryParam extends OptionalQueryParamDecoderMatcher[Int]("offset")
+  object LimitQueryParam extends OptionalQueryParamDecoderMatcher[Int]("limit")
+
+  // POST /jobs?limit=x&offset=y { filters } // todo: add query params and filters
   private val allJobsRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case POST -> Root =>
+    case req @ POST -> Root :? LimitQueryParam(limit) +& OffsetQueryParam(offset) =>
       for {
-        jobsList <- jobs.all()
+        filter <- req.as[JobFilter]
+        jobsList <- jobs.all(filter, Pagination(limit, offset))
         resp <- Ok(jobsList)
       } yield resp
   }
@@ -66,7 +71,7 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends HttpV
           }
         } yield resp
       }
-    
+
   }
 
   // DELETE /jobs/uuid
