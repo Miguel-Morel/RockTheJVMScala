@@ -3,7 +3,7 @@ package com.rockthejvm.jobsboard.core
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
 import com.rockthejvm.jobsboard.domain.user.*
-import com.rockthejvm.jobsboard.fixtures.UsersFixture
+import com.rockthejvm.jobsboard.fixtures.UserFixture
 import doobie.implicits.{toConnectionIOOps, toSqlInterpolator}
 import org.postgresql.util.PSQLException
 import org.scalatest.Inside
@@ -12,7 +12,7 @@ import org.scalatest.matchers.should.Matchers
 import org.typelevel.log4cats.Logger
 import org.typelevel.log4cats.slf4j.Slf4jLogger
 
-class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Inside with DoobieSpec with UsersFixture {
+class UsersSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Inside with DoobieSpec with UserFixture {
   override val initScript: String = "sql/users.sql"
 
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]

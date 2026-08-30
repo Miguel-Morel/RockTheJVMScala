@@ -19,7 +19,12 @@ import org.http4s.circe.CirceEntityCodec.*
 import java.util.UUID
 
 
-class JobRoutesSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with Http4sDsl[IO] with JobFixture {
+class JobRoutesSpec 
+  extends AsyncFreeSpec
+  with AsyncIOSpec 
+  with Matchers 
+  with Http4sDsl[IO] 
+  with JobFixture {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // prep
