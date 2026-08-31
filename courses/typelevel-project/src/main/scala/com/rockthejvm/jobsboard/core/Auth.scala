@@ -19,10 +19,12 @@ trait Auth[F[_]] {
   def signUp(newUserInfo: NewUserInfo): F[Option[User]]
   def changePassword(email: String, newPasswordInfo: NewPassWordInfo): F[Either[String,Option[User]]]
   // todo - password recovery via email
+  
+  def authenticator: Authenticator[F]
 
 }
 
-class LiveAuth[F[_]: Async : Logger] private (users: Users[F], authenticator: Authenticator[F]) extends Auth[F] {
+class LiveAuth[F[_]: Async : Logger] private (users: Users[F], override val authenticator: Authenticator[F]) extends Auth[F] {
   override def login(email: String, password: String): F[Option[JwtToken]] =
     for {
       // find user in the db and return None if there's no user
