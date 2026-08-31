@@ -5,7 +5,7 @@ import cats.Traverse.ops.toAllTraverseOps
 import cats.TraverseFilter.ops.toAllTraverseFilterOps
 import cats.effect.{Async, IO, MonadCancelThrow}
 import cats.implicits.{catsSyntaxApplicativeId, toFlatMapOps}
-import com.rockthejvm.jobsboard.domain.auth.NewPassWordInfo
+import com.rockthejvm.jobsboard.domain.auth.NewPasswordInfo
 import com.rockthejvm.jobsboard.domain.security.{Authenticator, JwtToken}
 import com.rockthejvm.jobsboard.domain.user.{NewUserInfo, Role, User}
 import org.typelevel.log4cats.Logger
@@ -17,7 +17,7 @@ import tsec.passwordhashers.jca.BCrypt
 trait Auth[F[_]] {
   def login(email: String, password: String): F[Option[JwtToken]]
   def signUp(newUserInfo: NewUserInfo): F[Option[User]]
-  def changePassword(email: String, newPasswordInfo: NewPassWordInfo): F[Either[String,Option[User]]]
+  def changePassword(email: String, newPasswordInfo: NewPasswordInfo): F[Either[String,Option[User]]]
   // todo - password recovery via email
   
   def authenticator: Authenticator[F]
@@ -62,7 +62,7 @@ class LiveAuth[F[_]: Async : Logger] private (users: Users[F], override val auth
       } yield Some(user)
     }
 
-  override def changePassword(email: String, newPasswordInfo: NewPassWordInfo): F[Either[String, Option[User]]] = {
+  override def changePassword(email: String, newPasswordInfo: NewPasswordInfo): F[Either[String, Option[User]]] = {
     // find user
 //    users.find(email).flatMap {
 //      case None => Right(None).pure[F]

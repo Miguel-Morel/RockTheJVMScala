@@ -48,6 +48,7 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends HttpV
       }
   }
 
+  // POST /jobs/carete { jobInfo }
   private val createJobRouts: HttpRoutes[F] = HttpRoutes.of[F] {
     case req @ POST -> Root / "create" =>
       req.validate[JobInfo] { jobInfo =>

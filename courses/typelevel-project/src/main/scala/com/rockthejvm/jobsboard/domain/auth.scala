@@ -7,7 +7,7 @@ object auth {
                             password:String
                             )
 
-  final case class NewPassWordInfo(
+  final case class NewPasswordInfo(
                                   oldPassword: String,
                                   newPassword: String
                                   )

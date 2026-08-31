@@ -3,7 +3,7 @@ package com.rockthejvm.jobsboard.core
 import cats.data.OptionT
 import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
-import com.rockthejvm.jobsboard.domain.auth.NewPassWordInfo
+import com.rockthejvm.jobsboard.domain.auth.NewPasswordInfo
 import com.rockthejvm.jobsboard.domain.security.Authenticator
 import com.rockthejvm.jobsboard.domain.user
 import com.rockthejvm.jobsboard.domain.user.{NewUserInfo, Role, User}
@@ -130,7 +130,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
     "changePassword should return a Right(None) if the user doesn't exist" in {
       val program = for {
         auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
-        result <- auth.changePassword("alice@rockthejvm.com", NewPassWordInfo("oldpw", "newpw"))
+        result <- auth.changePassword("alice@rockthejvm.com", NewPasswordInfo("oldpw", "newpw"))
       } yield result
 
       program.asserting(_ shouldBe Right(None))
@@ -139,7 +139,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
     "changePassword should return a Left(error) if the user exists and the password is incorrect" in {
       val program = for {
         auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
-        result <- auth.changePassword(danielEmail, NewPassWordInfo("oldpw", "newpw"))
+        result <- auth.changePassword(danielEmail, NewPasswordInfo("oldpw", "newpw"))
       } yield result
 
       program.asserting(_ shouldBe Left("invalid password"))
@@ -148,7 +148,7 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
     "changePassword should update password if all details are correct" in {
       val program = for {
         auth <- LiveAuth[IO](mockedUsers, mockedAuthenticator)
-        result <- auth.changePassword(danielEmail, NewPassWordInfo("rockthejvm", "scalarocks"))
+        result <- auth.changePassword(danielEmail, NewPasswordInfo("rockthejvm", "scalarocks"))
         isNicePassword <- result match {
           case Right(Some(user)) =>
               BCrypt.checkpwBool[IO]("scalarocks", PasswordHash[BCrypt](user.hashedPassword))

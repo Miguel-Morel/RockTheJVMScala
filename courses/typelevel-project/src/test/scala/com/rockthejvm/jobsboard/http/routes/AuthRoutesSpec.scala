@@ -5,7 +5,7 @@ import cats.effect.IO
 import cats.effect.testing.scalatest.AsyncIOSpec
 import com.rockthejvm.jobsboard.core.Auth
 import com.rockthejvm.jobsboard.domain.auth
-import com.rockthejvm.jobsboard.domain.auth.{LoginInfo, NewPassWordInfo}
+import com.rockthejvm.jobsboard.domain.auth.{LoginInfo, NewPasswordInfo}
 import com.rockthejvm.jobsboard.domain.security.{Authenticator, JwtToken}
 import com.rockthejvm.jobsboard.domain.user.{NewUserInfo, User}
 import com.rockthejvm.jobsboard.fixtures.UserFixture
@@ -70,7 +70,7 @@ class AuthRoutesSpec
       else
         IO.pure(None)
 
-    def changePassword(email: String, newPasswordInfo: NewPassWordInfo): IO[Either[String, Option[User]]] =
+    def changePassword(email: String, newPasswordInfo: NewPasswordInfo): IO[Either[String, Option[User]]] =
       if(email == danielEmail)
         if(newPasswordInfo.oldPassword == danielPassword)
           IO.pure(Right(Some(daniel)))
@@ -181,7 +181,7 @@ class AuthRoutesSpec
         response <- authRoutes.orNotFound.run(
           Request(method = Method.PUT, uri = uri"/auth/users/password")
             .withBearerToken(jwtToken)
-            .withEntity(NewPassWordInfo(ricardoPassword, "newpassword"))
+            .withEntity(NewPasswordInfo(ricardoPassword, "newpassword"))
         )
       } yield {
         // assertions here
@@ -195,7 +195,7 @@ class AuthRoutesSpec
         response <- authRoutes.orNotFound.run(
           Request(method = Method.PUT, uri = uri"/auth/users/password")
             .withBearerToken(jwtToken)
-            .withEntity(NewPassWordInfo("wrongpassword", "newpassword"))
+            .withEntity(NewPasswordInfo("wrongpassword", "newpassword"))
         )
       } yield {
         // assertions here
@@ -221,7 +221,7 @@ class AuthRoutesSpec
         response <- authRoutes.orNotFound.run(
           Request(method = Method.PUT, uri = uri"/auth/users/password")
             .withBearerToken(jwtToken)
-            .withEntity(NewPassWordInfo(danielPassword, "newpassword"))
+            .withEntity(NewPasswordInfo(danielPassword, "newpassword"))
         )
       } yield {
         // assertions here
