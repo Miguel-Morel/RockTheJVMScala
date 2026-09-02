@@ -4,9 +4,10 @@ import cats.Apply.ops.toAllApplyOps
 import cats.FlatMap.nonInheritedOps.toFlatMapOps
 import cats.MonoidK.ops.toAllMonoidKOps
 import cats.effect.Concurrent
+import cats.syntax.all.catsSyntaxSemigroup
 import com.rockthejvm.jobsboard.core.Auth
 import com.rockthejvm.jobsboard.domain.auth.{LoginInfo, NewPasswordInfo}
-import com.rockthejvm.jobsboard.domain.security.{AuthRoute, JwtToken}
+import com.rockthejvm.jobsboard.domain.security.{AuthRoute, JwtToken, adminOnly, allRoles, restrictedTo}
 import com.rockthejvm.jobsboard.domain.user.{NewUserInfo, User}
 import com.rockthejvm.jobsboard.http.responses.FailureResponse
 import com.rockthejvm.jobsboard.http.validation.syntax.HttpValidationDsl
@@ -16,6 +17,7 @@ import org.typelevel.log4cats.Logger
 import io.circe.generic.auto.*
 import org.http4s.circe.CirceEntityCodec.*
 import tsec.authentication.{SecuredRequestHandler, TSecAuthService, asAuthed}
+import scala.language.implicitConversions
 
 class AuthRoutes[F[_] : Concurrent: Logger] private (auth: Auth[F]) extends HttpValidationDsl[F] {
 
@@ -78,9 +80,22 @@ class AuthRoutes[F[_] : Concurrent: Logger] private (auth: Auth[F]) extends Http
       } yield resp
   }
 
+  // DELETE /auth/users/daniel@rockthejvm.com
+  private val deleteUserRoute: AuthRoute[F] = {
+    case req @ DELETE-> Root  / "users" / email asAuthed user =>
+      // auth - delete user
+      auth.delete(email).flatMap {
+        case true => Ok()
+        case false => NotFound()
+      }
+  }
+
   val unauthedRoutes = loginRoute <+> createUserRoute
   val authedRoutes = securedHandler.liftService(
-    TSecAuthService(changePasswordRoute.orElse(logoutRoute))
+     changePasswordRoute.restrictedTo(allRoles) |+|
+     logoutRoute.restrictedTo(allRoles) |+|
+     deleteUserRoute.restrictedTo(adminOnly)
+//    TSecAuthService(changePasswordRoute.orElse(logoutRoute).orElse(deleteUserRoute))
   )
 
   val routes = Router(

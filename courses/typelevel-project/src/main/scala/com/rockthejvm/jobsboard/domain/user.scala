@@ -1,6 +1,8 @@
 package com.rockthejvm.jobsboard.domain
 
+import com.rockthejvm.jobsboard.domain.user.Role.RECRUITER
 import doobie.util.meta.Meta
+import tsec.authorization.{AuthGroup, SimpleAuthEnum}
 
 object user {
   
@@ -28,6 +30,12 @@ object user {
   object Role {
     given metaRole: Meta[Role] =
       Meta[String].timap[Role](Role.valueOf)(_.toString)
+  }
+  
+  given roleAuthEnum: SimpleAuthEnum[Role, String] {
+    override val values: AuthGroup[Role] = AuthGroup(Role.ADMIN, RECRUITER)
+
+    override def getRepr(role: Role): String = role.toString
   }
 
 }

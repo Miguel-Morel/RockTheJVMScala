@@ -79,6 +79,7 @@ class AuthRoutesSpec
       else
       IO.pure(Right(None))
 
+    override def delete(email: String): IO[Boolean] = IO.pure(true)
 
     def authenticator: Authenticator[IO] = mockedAuthenticator
   }
@@ -216,6 +217,33 @@ class AuthRoutesSpec
     }
 
     "should return a 200 - Ok if changing password for a user with a valid JWT and password" in {
+      for {
+        jwtToken <- mockedAuthenticator.create(danielEmail)
+        response <- authRoutes.orNotFound.run(
+          Request(method = Method.PUT, uri = uri"/auth/users/password")
+            .withBearerToken(jwtToken)
+            .withEntity(NewPasswordInfo(danielPassword, "newpassword"))
+        )
+      } yield {
+        // assertions here
+        response.status shouldBe Status.Ok
+      }
+    }
+
+    "should return a 401 - Unauthorized if a non-admin tries to delete an user" in {
+      for {
+        jwtToken <- mockedAuthenticator.create(ricardoEmail)
+        response <- authRoutes.orNotFound.run(
+          Request(method = Method.DELETE, uri = uri"/auth/users/daniel@rockthejvm.com")
+            .withBearerToken(jwtToken)
+        )
+      } yield {
+        // assertions here
+        response.status shouldBe Status.Unauthorized
+      }
+    }
+
+    "should return a 200 - Ok if an admin tries to delete an user" in {
       for {
         jwtToken <- mockedAuthenticator.create(danielEmail)
         response <- authRoutes.orNotFound.run(
