@@ -14,17 +14,23 @@ import java.util.UUID
 import scala.collection.mutable
 import com.rockthejvm.jobsboard.domain.job.*
 import com.rockthejvm.jobsboard.domain.pagination.Pagination
+import com.rockthejvm.jobsboard.domain.security.{AuthRoute, Authenticator, JwtToken, SecuredHandler, allRoles, restrictedTo}
+import com.rockthejvm.jobsboard.domain.user.User
 import com.rockthejvm.jobsboard.http.responses.FailureResponse
 import com.rockthejvm.jobsboard.http.validation.syntax.HttpValidationDsl
 import org.typelevel.log4cats.Logger
 import com.rockthejvm.jobsboard.logging.syntax.*
+import tsec.authentication.{SecuredRequestHandler, asAuthed}
+import scala.language.implicitConversions
 
-class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends HttpValidationDsl[F] {
+class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F], authenticator: Authenticator[F]) extends HttpValidationDsl[F] {
 
   /*
     refined
     -checked at compile time -> increase compile time
    */
+
+  private val securedHandler: SecuredHandler[F] = SecuredRequestHandler(authenticator)
 
   object OffsetQueryParam extends OptionalQueryParamDecoderMatcher[Int]("offset")
   object LimitQueryParam extends OptionalQueryParamDecoderMatcher[Int]("limit")
@@ -49,9 +55,9 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends HttpV
   }
 
   // POST /jobs/carete { jobInfo }
-  private val createJobRouts: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ POST -> Root / "create" =>
-      req.validate[JobInfo] { jobInfo =>
+  private val createJobRoute: AuthRoute[F] = {
+    case req @ POST -> Root / "create" asAuthed _ =>
+      req.request.validate[JobInfo] { jobInfo =>
         for {
           jobId <- jobs.create("TODO@rockthejvm.com", jobInfo)
           resp <- Created(jobId)
@@ -60,40 +66,50 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F]) extends HttpV
   }
 
   // PUT /jobs/uuid { jobInfo }
-  private val updateJobRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ PUT -> Root / UUIDVar(id) =>
-      req.validate[JobInfo] { jobInfo =>
-        for {
-          jobInfo <- req.as[JobInfo]
-          maybeNewJob <- jobs.update(id, jobInfo)
-          resp <- maybeNewJob match {
-            case Some(job) => Ok()
-            case None => NotFound(FailureResponse(s"cannot update job $id: not found"))
-          }
-        } yield resp
+  private val updateJobRoute: AuthRoute[F] = {
+    case req @ PUT -> Root / UUIDVar(id) asAuthed user =>
+      req.request.validate[JobInfo] { jobInfo =>
+        jobs.find(id).flatMap {
+          case None =>
+            NotFound(FailureResponse(s"cannot update job $id: not found"))
+          case Some(job)
+            if user.owns(job) || user.isAdmin =>
+              jobs.update(id, jobInfo) *> Ok()
+          case _ =>
+            Forbidden(FailureResponse("you can only update your own jobs"))
+        }
       }
-
   }
 
   // DELETE /jobs/uuid
-  private val deleteJobRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ DELETE -> Root / UUIDVar(id)  =>
+  private val deleteJobRoute: AuthRoute[F] = {
+    case req @ DELETE -> Root / UUIDVar(id) asAuthed user =>
       jobs.find(id).flatMap{
-        case Some(job) =>
-          for {
-            _ <- jobs.delete(id)
-            resp <- Ok()
-          } yield resp
-        case None => NotFound(FailureResponse(s"cannot delete job $id: not found"))
+        case None =>
+          NotFound(FailureResponse(s"cannot delete job $id: not found"))
+        case Some(job)
+          if user.owns(job) || user.isAdmin =>
+            jobs.delete(id) *> Ok()
+        case _ =>
+          Forbidden(FailureResponse("you can only delete your own jobs"))
       }
   }
 
+  val unauthedRoutes = allJobsRoute <+> findJobRoute
+
+  val authedRoutes = securedHandler.liftService(
+    createJobRoute.restrictedTo(allRoles) |+|
+    updateJobRoute.restrictedTo(allRoles) |+|
+    deleteJobRoute.restrictedTo(allRoles)
+  )
+
   val routes = Router(
-    "/jobs" -> (allJobsRoute <+> findJobRoute <+> createJobRouts <+> updateJobRoute <+> deleteJobRoute)
+    "/jobs" -> (unauthedRoutes <+> authedRoutes)
   )
 }
 
 object JobRoutes {
-  def apply[F[_]: Concurrent: Logger](jobs: Jobs[F]) = new JobRoutes[F](jobs)
+  def apply[F[_]: Concurrent: Logger](jobs: Jobs[F], authenticator: Authenticator[F]) =
+    new JobRoutes[F](jobs, authenticator)
   
 }

@@ -8,7 +8,7 @@ import com.rockthejvm.jobsboard.domain.auth
 import com.rockthejvm.jobsboard.domain.auth.{LoginInfo, NewPasswordInfo}
 import com.rockthejvm.jobsboard.domain.security.{Authenticator, JwtToken}
 import com.rockthejvm.jobsboard.domain.user.{NewUserInfo, User}
-import com.rockthejvm.jobsboard.fixtures.UserFixture
+import com.rockthejvm.jobsboard.fixtures.{SecuredRouteFixture, UserFixture}
 import org.http4s.{AuthScheme, Credentials, HttpRoutes, Method, Request, Status}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits.uri
@@ -31,29 +31,12 @@ class AuthRoutesSpec
   with AsyncIOSpec
   with Matchers
   with Http4sDsl[IO]
-  with UserFixture {
+  with UserFixture
+  with SecuredRouteFixture {
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // prep
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-  val mockedAuthenticator: Authenticator[IO] = {
-    // key for hashing
-    val key = HMACSHA256.unsafeGenerateKey
-    // identity store to retrieve users
-    val idStore: IdentityStore[IO, String, User] = (email: String) =>
-      if (email == danielEmail) OptionT.pure(daniel)
-      else if (email == ricardoEmail) OptionT.pure(ricardo)
-      else OptionT.none[IO, User]
-    // jwt authenticator(key, identity store)
-    JWTAuthenticator.unbacked.inBearerToken(
-      // expiry of tokens, max idle, idStore, key
-      1.day, // expiration of tokens
-      None, // max idle time(optional)
-      idStore, // identity store
-      key // hash key
-    )
-  }
 
   val mockedAuth: Auth[IO] = new Auth[IO] {
     // TODO: make sure ONLY daniel already exists
@@ -83,14 +66,6 @@ class AuthRoutesSpec
 
     def authenticator: Authenticator[IO] = mockedAuthenticator
   }
-
-  extension (r: Request[IO])
-    def withBearerToken(a: JwtToken): Request[IO] =
-      r.putHeaders {
-        val jwtString = JWTMac.toEncodedString[IO, HMACSHA256](a.jwt)
-        // Authorization: Bearer {jwt}
-        Authorization(Credentials.Token(AuthScheme.Bearer, jwtString))
-      }
 
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 

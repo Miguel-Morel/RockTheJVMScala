@@ -5,7 +5,7 @@ import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxSemigroup}
 import com.rockthejvm.jobsboard.domain.user.{Role, User}
 import doobie.WeakAsync.doobieWeakAsyncForAsync
 import org.http4s.{Response, Status}
-import tsec.authentication.{AugmentedJWT, JWTAuthenticator, SecuredRequest, TSecAuthService}
+import tsec.authentication.{AugmentedJWT, JWTAuthenticator, SecuredRequest, SecuredRequestHandler, TSecAuthService}
 import tsec.authorization.*
 import tsec.mac.jca.HMACSHA256
 
@@ -14,7 +14,9 @@ object security {
   type JwtToken = AugmentedJWT[HMACSHA256, String]
   type Authenticator[F[_]] = JWTAuthenticator[F, String, User, Crypto]
   type AuthRoute[F[_]] = PartialFunction[SecuredRequest[F, User, JwtToken], F[Response[F]]]
+  // type aliases for http routes
   type AuthRBAC[F[_]] = BasicRBAC[F, Role, User, JwtToken]
+  type SecuredHandler[F[_]] = SecuredRequestHandler[F, String, User, JwtToken]
 
   // RBAC
   // BasicRBAC[F, Role, User, JwtToken]

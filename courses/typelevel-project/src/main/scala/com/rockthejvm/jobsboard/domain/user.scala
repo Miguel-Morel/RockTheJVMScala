@@ -1,5 +1,6 @@
 package com.rockthejvm.jobsboard.domain
 
+import com.rockthejvm.jobsboard.domain.job.Job
 import com.rockthejvm.jobsboard.domain.user.Role.RECRUITER
 import doobie.util.meta.Meta
 import tsec.authorization.{AuthGroup, SimpleAuthEnum}
@@ -13,7 +14,11 @@ object user {
     lastName: Option[String],
     company: Option[String],
     role: Role
-  )
+  ) {
+    def owns(job: Job): Boolean = email == job.ownerEmail
+    def isAdmin: Boolean = role == Role.ADMIN
+    def isRecruiter: Boolean = role == Role.RECRUITER
+  }
 
   final case class NewUserInfo(
     email: String,
