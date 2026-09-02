@@ -7,28 +7,23 @@ import doobie.hikari.HikariTransactor
 import com.rockthejvm.jobsboard.core.*
 import cats.effect.*
 import cats.implicits.*
+import com.rockthejvm.jobsboard.config.SecurityConfig
+import com.rockthejvm.jobsboard.domain.auth
 import doobie.util.transactor.Transactor
 import org.typelevel.log4cats.Logger
 
-final class Core[F[_]] private (val jobs: Jobs[F])
+final class Core[F[_]] private (val jobs: Jobs[F], val auth: Auth[F])
 
 // postgres -> jobs -> core -> httpApi -> app
 
 object Core {
-  def postgresResource[F[_]: Async]: Resource[F, HikariTransactor[F]] = for {
-    ec <- ExecutionContexts.fixedThreadPool(32)
-    xa <- HikariTransactor.newHikariTransactor[F](
-      "org.postgresql.Driver",
-      "jdbc:postgresql:board", // todo: move to config
-      "docker",
-      "docker",
-      ec
-    )
-  } yield xa
+  def apply[F[_]: Async : Logger](xa: Transactor[F])(securityConfig: SecurityConfig): Resource[F, Core[F]] = {
+    val coreF = for {
+      jobs <- LiveJobs[F](xa)
+      users <- LiveUsers[F](xa)
+      auth <- LiveAuth[F](users)(securityConfig)
+    } yield new Core(jobs, auth)
 
-  def apply[F[_]: Async : Logger](xa: Transactor[F]): Resource[F, Core[F]] = {
-    Resource
-      .eval(LiveJobs[F](xa)
-      .map(jobs => new Core(jobs)))
+    Resource.eval(coreF)
   }
 }
