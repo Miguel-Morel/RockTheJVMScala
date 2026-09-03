@@ -24,40 +24,9 @@ class AuthSpec extends AsyncFreeSpec with AsyncIOSpec with Matchers with UserFix
 
   given logger: Logger[IO] = Slf4jLogger.getLogger[IO]
 
-  private val mockedUsers: Users[IO] = new Users[IO] {
-    override def find(email: String): IO[Option[User]] =
-      if(email == danielEmail) IO.pure(Some(daniel))
-      else IO.pure(None)
 
-    override def create(user: User): IO[String] =
-      IO.pure(user.email)
-
-    override def update(user: User): IO[Option[User]] =
-      IO.pure(Some(user))
-
-    override def delete(email: String): IO[Boolean] =
-      IO.pure(true)
-  }
   
   val mockedConfig = SecurityConfig("secret", 1.day)
-
-//  val mockedAuthenticator: Authenticator[IO] = {
-//    // key for hashing
-//    val key = HMACSHA256.unsafeGenerateKey
-//    // identity store to retrieve users
-//    val idStore: IdentityStore[IO, String, User] = (email: String) =>
-//      if(email == danielEmail) OptionT.pure(daniel)
-//      else if(email == ricardoEmail) OptionT.pure(ricardo)
-//      else OptionT.none[IO, User]
-//    // jwt authenticator(key, identity store)
-//    JWTAuthenticator.unbacked.inBearerToken(
-//      // expiry of tokens, max idle, idStore, key
-//      1.day, // expiration of tokens
-//      None, // max idle time(optional)
-//      idStore, // identity store
-//      key // hash key
-//      )
-//  }
 
   "Auth 'algebra" - {
     "login should return None if the user doesn't exist" in {
