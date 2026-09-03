@@ -2,6 +2,27 @@
 <project version="4">
   <component name="ScalaCompilerConfiguration">
     <option name="separateProdTestSources" value="true" />
-    <profile name="sbt 1" modules="typelevel-project,typelevel-project.main,typelevel-project.test" />
+    <profile name="sbt 1" modules="typelevel-project,typelevel-project.app,typelevel-project.common.commonJS,typelevel-project.common.commonJVM,typelevel-project.common.commonJVM.main,typelevel-project.common.commonJVM.test,typelevel-project.common.coreJS,typelevel-project.common.coreJVM,typelevel-project.common.coreJVM.main,typelevel-project.common.coreJVM.test,typelevel-project.main,typelevel-project.server,typelevel-project.server.main,typelevel-project.server.test,typelevel-project.test,typelevel-project.typelevel-project,typelevel-project.typelevel-project.main,typelevel-project.typelevel-project.test" />
+    <profile name="sbt 2" modules="typelevel-project.app.test">
+      <parameters>
+        <parameter value="-scalajs" />
+        <parameter value="-Xsemanticdb" />
+        <parameter value="-semanticdb-target" />
+        <parameter value="$PROJECT_DIR$/app/target/scala-3.8.4/test-meta" />
+      </parameters>
+    </profile>
+    <profile name="sbt 3" modules="typelevel-project.app.main">
+      <parameters>
+        <parameter value="-scalajs" />
+        <parameter value="-Xsemanticdb" />
+        <parameter value="-semanticdb-target" />
+        <parameter value="$PROJECT_DIR$/app/target/scala-3.8.4/meta" />
+      </parameters>
+    </profile>
+    <profile name="sbt 4" modules="typelevel-project.common.commonJS.main,typelevel-project.common.commonJS.test,typelevel-project.common.coreJS.main,typelevel-project.common.coreJS.test">
+      <parameters>
+        <parameter value="-scalajs" />
+      </parameters>
+    </profile>
   </component>
 </project>
