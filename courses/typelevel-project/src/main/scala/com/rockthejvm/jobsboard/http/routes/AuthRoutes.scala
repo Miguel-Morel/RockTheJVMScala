@@ -7,7 +7,7 @@ import cats.effect.Concurrent
 import cats.implicits.toTraverseOps
 import cats.syntax.all.catsSyntaxSemigroup
 import com.rockthejvm.jobsboard.core.Auth
-import com.rockthejvm.jobsboard.domain.auth.{LoginInfo, NewPasswordInfo}
+import com.rockthejvm.jobsboard.domain.auth.{ForgotPasswordInfo, LoginInfo, NewPasswordInfo, RecoverPasswordInfo}
 import com.rockthejvm.jobsboard.domain.security.{AuthRoute, Authenticator, JwtToken, SecuredHandler, adminOnly, allRoles, restrictedTo}
 import com.rockthejvm.jobsboard.domain.user.{NewUserInfo, User}
 import com.rockthejvm.jobsboard.http.responses.FailureResponse
@@ -71,12 +71,22 @@ class AuthRoutes[F[_] : Concurrent: Logger : SecuredHandler] private (auth: Auth
 
   // POST /auth/reset { ForgotPasswordInfo }
   private val forgotPasswordRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ POST -> Root / "reset" => Ok("TODO")
+    case req @ POST -> Root / "reset" =>
+      for {
+        fpInfo <- req.as[ForgotPasswordInfo]
+        _ <- auth.sendPasswordRecoveryToken(fpInfo.email)
+        resp <- Ok()
+      } yield resp
   }
 
   // POST /auth/recover { RecoverPasswordInfo }
   private val recoverPasswordRoute: HttpRoutes[F] = HttpRoutes.of[F] {
-    case req @ POST -> Root / "reset" => Ok("TODO")
+    case req @ POST -> Root / "recover" =>
+      for {
+        rpInfo <- req.as[RecoverPasswordInfo]
+        recoverySuccessful <- auth.recoverPasswordFromToken(rpInfo.email, rpInfo.token, rpInfo.newPassword)
+        resp <- if(recoverySuccessful) Ok() else Forbidden(FailureResponse("email/token combination is incorrect"))
+      } yield resp
   }
 
 
@@ -100,12 +110,11 @@ class AuthRoutes[F[_] : Concurrent: Logger : SecuredHandler] private (auth: Auth
       }
   }
 
-  val unauthedRoutes = loginRoute <+> createUserRoute
+  val unauthedRoutes = loginRoute <+> createUserRoute <+> forgotPasswordRoute <+> recoverPasswordRoute
   val authedRoutes = SecuredHandler[F].liftService(
      changePasswordRoute.restrictedTo(allRoles) |+|
      logoutRoute.restrictedTo(allRoles) |+|
      deleteUserRoute.restrictedTo(adminOnly)
-//    TSecAuthService(changePasswordRoute.orElse(logoutRoute).orElse(deleteUserRoute))
   )
 
   val routes = Router(
