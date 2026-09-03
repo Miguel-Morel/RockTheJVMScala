@@ -23,14 +23,14 @@ import com.rockthejvm.jobsboard.logging.syntax.*
 import tsec.authentication.{SecuredRequestHandler, asAuthed}
 import scala.language.implicitConversions
 
-class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F], authenticator: Authenticator[F]) extends HttpValidationDsl[F] {
+class JobRoutes[F[_] : Concurrent: Logger : SecuredHandler] private (jobs: Jobs[F]) extends HttpValidationDsl[F] {
 
   /*
     refined
     -checked at compile time -> increase compile time
    */
 
-  private val securedHandler: SecuredHandler[F] = SecuredRequestHandler(authenticator)
+ 
 
   object OffsetQueryParam extends OptionalQueryParamDecoderMatcher[Int]("offset")
   object LimitQueryParam extends OptionalQueryParamDecoderMatcher[Int]("limit")
@@ -97,7 +97,7 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F], authenticator
 
   val unauthedRoutes = allJobsRoute <+> findJobRoute
 
-  val authedRoutes = securedHandler.liftService(
+  val authedRoutes = SecuredHandler[F].liftService(
     createJobRoute.restrictedTo(allRoles) |+|
     updateJobRoute.restrictedTo(allRoles) |+|
     deleteJobRoute.restrictedTo(allRoles)
@@ -109,7 +109,7 @@ class JobRoutes[F[_] : Concurrent: Logger] private (jobs: Jobs[F], authenticator
 }
 
 object JobRoutes {
-  def apply[F[_]: Concurrent: Logger](jobs: Jobs[F], authenticator: Authenticator[F]) =
-    new JobRoutes[F](jobs, authenticator)
+  def apply[F[_]: Concurrent: Logger : SecuredHandler](jobs: Jobs[F]) =
+    new JobRoutes[F](jobs)
   
 }

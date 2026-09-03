@@ -2,11 +2,11 @@ package com.rockthejvm.jobsboard.fixtures
 
 import cats.data.OptionT
 import cats.effect.IO
-import com.rockthejvm.jobsboard.domain.security.{Authenticator, JwtToken}
+import com.rockthejvm.jobsboard.domain.security.{Authenticator, JwtToken, SecuredHandler}
 import com.rockthejvm.jobsboard.domain.user.User
 import org.http4s.{AuthScheme, Credentials, Request}
 import org.http4s.headers.Authorization
-import tsec.authentication.{IdentityStore, JWTAuthenticator}
+import tsec.authentication.{IdentityStore, JWTAuthenticator, SecuredRequestHandler}
 import tsec.jws.mac.JWTMac
 import tsec.mac.jca.HMACSHA256
 
@@ -38,5 +38,7 @@ trait SecuredRouteFixture extends UserFixture {
         // Authorization: Bearer {jwt}
         Authorization(Credentials.Token(AuthScheme.Bearer, jwtString))
       }
+      
+  given securedHandler: SecuredHandler[IO] = SecuredRequestHandler(mockedAuthenticator)
 
 }

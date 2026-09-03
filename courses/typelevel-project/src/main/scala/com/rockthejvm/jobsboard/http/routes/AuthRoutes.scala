@@ -4,10 +4,11 @@ import cats.Apply.ops.toAllApplyOps
 import cats.FlatMap.nonInheritedOps.toFlatMapOps
 import cats.MonoidK.ops.toAllMonoidKOps
 import cats.effect.Concurrent
+import cats.implicits.toTraverseOps
 import cats.syntax.all.catsSyntaxSemigroup
 import com.rockthejvm.jobsboard.core.Auth
 import com.rockthejvm.jobsboard.domain.auth.{LoginInfo, NewPasswordInfo}
-import com.rockthejvm.jobsboard.domain.security.{AuthRoute, JwtToken, adminOnly, allRoles, restrictedTo}
+import com.rockthejvm.jobsboard.domain.security.{AuthRoute, Authenticator, JwtToken, SecuredHandler, adminOnly, allRoles, restrictedTo}
 import com.rockthejvm.jobsboard.domain.user.{NewUserInfo, User}
 import com.rockthejvm.jobsboard.http.responses.FailureResponse
 import com.rockthejvm.jobsboard.http.validation.syntax.HttpValidationDsl
@@ -17,21 +18,19 @@ import org.typelevel.log4cats.Logger
 import io.circe.generic.auto.*
 import org.http4s.circe.CirceEntityCodec.*
 import tsec.authentication.{SecuredRequestHandler, TSecAuthService, asAuthed}
+
 import scala.language.implicitConversions
 
-class AuthRoutes[F[_] : Concurrent: Logger] private (auth: Auth[F]) extends HttpValidationDsl[F] {
-
-  private val authenticator = auth.authenticator
-
-  private val securedHandler: SecuredRequestHandler[F, String, User, JwtToken] = SecuredRequestHandler(authenticator)
+class AuthRoutes[F[_] : Concurrent: Logger : SecuredHandler] private (auth: Auth[F], authenticator: Authenticator[F]) extends HttpValidationDsl[F] {
 
   // POST /auth/login { LoginInfo } => 200 OK with Authorization: Bearer {jwt}
   private val loginRoute: HttpRoutes[F] =  HttpRoutes.of[F] {
     case req @ POST -> Root  / "login" =>
       req.validate[LoginInfo] { loginInfo =>
         val maybeJwtToken = for {
-          maybeToken <- auth.login(loginInfo.email, loginInfo.password)
+          maybeUser <- auth.login(loginInfo.email, loginInfo.password)
           _ <- Logger[F].info(s"user logging in: ${loginInfo.email}")
+          maybeToken <- maybeUser.traverse(user => authenticator.create(user.email))
         } yield maybeToken
 
         maybeJwtToken.map {
@@ -91,7 +90,7 @@ class AuthRoutes[F[_] : Concurrent: Logger] private (auth: Auth[F]) extends Http
   }
 
   val unauthedRoutes = loginRoute <+> createUserRoute
-  val authedRoutes = securedHandler.liftService(
+  val authedRoutes = SecuredHandler[F].liftService(
      changePasswordRoute.restrictedTo(allRoles) |+|
      logoutRoute.restrictedTo(allRoles) |+|
      deleteUserRoute.restrictedTo(adminOnly)
@@ -104,6 +103,12 @@ class AuthRoutes[F[_] : Concurrent: Logger] private (auth: Auth[F]) extends Http
 
 }
 
+/*
+  - need a CAPABILITY, instead of intermediate values (use DI (dependency injection) in that case)
+  - instantiated ONCE in the entire app
+ */
+
 object AuthRoutes {
-  def apply[F[_] : Concurrent: Logger](auth: Auth[F]) = new AuthRoutes[F](auth)
+  def apply[F[_] : Concurrent: Logger: SecuredHandler](auth: Auth[F], authenticator: Authenticator[F]) =
+    new AuthRoutes[F](auth, authenticator)
 }
